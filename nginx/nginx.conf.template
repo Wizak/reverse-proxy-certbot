@@ -1,0 +1,39 @@
+server {
+    listen 80;
+    listen [::]:80;
+
+    server_name ${NGINX_SERVER_HOST_DOMAIN};
+    server_tokens off;
+
+    location @redirect {
+        return 301 https://$host;
+    }
+
+    location / {
+        return 301 https://$host$request_uri;
+    }
+
+    location /.well-known/acme-challenge/ {
+        root /var/www/certbot;
+        try_files $uri @redirect;
+    }
+}
+
+server {
+    listen 443 ssl default_server;
+    listen [::]:443 ssl default_server;
+
+    ssl_certificate /etc/nginx/ssl/live/certs/fullchain.pem;
+    ssl_certificate_key /etc/nginx/ssl/live/certs/privkey.pem;
+
+    server_name ${NGINX_SERVER_HOST_DOMAIN};
+
+    location / {
+        proxy_set_header Host $http_host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        proxy_pass ${NGINX_REVERSE_HOST};
+    }
+}
